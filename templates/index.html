@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Face Recognition System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+        }
+        .main-content {
+            flex: 2;
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .attendance-panel {
+            flex: 1;
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .video-container {
+            margin: 20px 0;
+            position: relative;
+        }
+        .video-container img {
+            border-radius: 10px;
+            max-width: 100%;
+            height: auto;
+        }
+        .recognition-alert {
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .status-indicator {
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .attendance-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .attendance-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .attendance-time {
+            color: #666;
+            font-size: 0.9em;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <h1>Face Recognition System</h1>
+            <div class="status-indicator">
+                Status: <span id="connection-status">Connecting...</span>
+            </div>
+            <div class="video-container">
+                <img src="{{ url_for('video_feed') }}" 
+                     onerror="handleVideoError()" 
+                     onload="handleVideoSuccess()">
+            </div>
+            <div id="recognition-alert" class="recognition-alert"></div>
+        </div>
+        
+        <div class="attendance-panel">
+            <h2>Today's Attendance</h2>
+            <div id="attendance-list" class="attendance-list">
+                <!-- Attendance items will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let connectionStatus = document.getElementById('connection-status');
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 3;
+
+        function handleVideoError() {
+            connectionStatus.textContent = 'Error: Cannot access webcam';
+            connectionStatus.style.color = 'red';
+            if (reconnectAttempts < maxReconnectAttempts) {
+                reconnectAttempts++;
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+            }
+        }
+
+        function handleVideoSuccess() {
+            connectionStatus.textContent = 'Connected';
+            connectionStatus.style.color = 'green';
+            reconnectAttempts = 0;
+        }
+
+        function updateAttendanceList() {
+            fetch('/attendance')
+                .then(response => response.json())
+                .then(data => {
+                    const attendanceList = document.getElementById('attendance-list');
+                    attendanceList.innerHTML = '';
+                    
+                    data.forEach(([name, time]) => {
+                        const item = document.createElement('div');
+                        item.className = 'attendance-item';
+                        item.innerHTML = `
+                            <span class="attendance-name">${name}</span>
+                            <span class="attendance-time">${time}</span>
+                        `;
+                        attendanceList.appendChild(item);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching attendance:', error);
+                });
+        }
+
+        function checkRecognitions() {
+            fetch('/recognitions')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.names && data.names.length > 0) {
+                        const alert = document.getElementById('recognition-alert');
+                        alert.textContent = `Recognized: ${data.names.join(', ')}`;
+                        alert.style.display = 'block';
+                        setTimeout(() => {
+                            alert.style.display = 'none';
+                        }, 3000);
+                        
+                        // Update attendance list when someone is recognized
+                        updateAttendanceList();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching recognitions:', error);
+                });
+        }
+
+        // Initial attendance load
+        updateAttendanceList();
+
+        // Set up periodic checks
+        setInterval(checkRecognitions, 1000);
+        setInterval(updateAttendanceList, 5000);
+    </script>
+</body>
+</html>
