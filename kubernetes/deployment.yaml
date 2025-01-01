@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: face-recognition-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: face-recognition
+  template:
+    metadata:
+      labels:
+        app: face-recognition
+    spec:
+      containers:
+      - name: face-recognition
+        image: face-recognition:latest
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+        - name: known-faces
+          mountPath: /app/known_faces
+        - name: db-storage
+          mountPath: /app/data
+      volumes:
+      - name: known-faces
+        persistentVolumeClaim:
+          claimName: known-faces-pvc
+      - name: db-storage
+        persistentVolumeClaim:
+          claimName: db-storage-pvc
